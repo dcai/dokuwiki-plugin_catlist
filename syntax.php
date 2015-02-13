@@ -211,7 +211,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			if ($item[0] == '.' || $item[0] == '_') continue;
 			$name = str_replace('.txt', '', $item);
 			$id = $ns.':'.$name;
-			$infos = array('id'=>$id, 'name'=>$name);
+			$infos = array('id'=>rawurldecode($id), 'name'=>$name);
 			if (is_dir($path.'/'.$item)) {
 				if ($excluNS) continue;
 				$startid = $id.':';
@@ -231,7 +231,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			} else if (!$excluPages) {
 				if (substr($item, -4) != ".txt") continue;
 				if (auth_quickaclcheck($id) < AUTH_READ) continue;
-				$infos['title'] = p_get_first_heading($id, true);
+				$infos['title'] = rawurldecode(p_get_first_heading($id, true));
 				if (is_null($infos['title'])) $infos['title'] = $name;
 				if ($this->_isExcluded($infos, $data['exclutype'], $data['exclupage'])) continue;
 				if ($id != $mainPageId) $this->_displayPage($renderer, $infos, $data['displayType']);
