@@ -37,21 +37,21 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 	function getType () {
 		return 'substition';
 	}
-	
+
 	/*************************************************************************************************/
-	
+
 	function _checkOption(&$match, $option, &$varAffected, $valIfFound){
 		if (preg_match('/-'.$option.' /i', $match, $found)) {
 			$varAffected = $valIfFound;
 			$match = str_replace($found[0], '', $match);
 		}
 	}
-	
-	function handle ($match, $state, $pos, &$handler) {
+
+	function handle ($match, $state, $pos, Doku_Handler $handler) {
 		$return = array('displayType' => CATLIST_DISPLAY_LIST, 'nsInBold' => true, 'expand' => 6,
 		                'exclupage' => array(), 'excluns' => array(), 'exclunsall' => array(), 'exclunspages' => array(), 'exclunsns' => array(),
-		                'exclutype' => 'id', 
-		                'createPageButton' => true, 'createPageButtonEach' => false, 
+		                'exclutype' => 'id',
+		                'createPageButton' => true, 'createPageButtonEach' => false,
 		                'head' => true, 'headTitle' => NULL, 'smallHead' => false, 'linkStartHead' => true, 'hn' => 'h1',
 		                'NsHeadTitle' => true, 'forceLinks' => false,
 		                'wantedNS' => '', 'safe' => true,
@@ -59,7 +59,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 		                'scandir_sort' => SCANDIR_SORT_NONE);
 
 		$match = utf8_substr($match, 9, -1).' ';
-		
+
 		// Display options
 		$this->_checkOption($match, "displayList", $return['displayType'], CATLIST_DISPLAY_LIST);
 		$this->_checkOption($match, "displayLine", $return['displayType'], CATLIST_DISPLAY_LINE);
@@ -68,7 +68,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$return['expand'] = intval($found[1]);
 			$match = str_replace($found[0], '', $match);
 		}
-		
+
 		// Namespace options
 		$this->_checkOption($match, "forceLinks", $return['forceLinks'], true);
 		$this->_checkOption($match, "noNSHeadTitle", $return['NsHeadTitle'], false);
@@ -82,12 +82,12 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$return[strtolower($found[1])] = true;
 			$match = str_replace($found[0], '', $match);
 		}
-		
+
 		// Exclude type (exclude based on id, name, or title)
 		$this->_checkOption($match, "excludeOnID", $return['exclutype'], 'id');
 		$this->_checkOption($match, "excludeOnName", $return['exclutype'], 'name');
 		$this->_checkOption($match, "excludeOnTitle", $return['exclutype'], 'title');
-		
+
 		// Max depth
 		if (preg_match("/-maxDepth:([0-9]+)/i", $match, $found)) {
 			$return['maxdepth'] = intval($found[1]);
@@ -116,22 +116,22 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$return['headTitle'] = $found[1];
 			$match = str_replace($found[0], '', $match);
 		}
-		
+
 		// Create page button options
 		$this->_checkOption($match, "noAddPageButton", $return['createPageButton'], false);
 		$this->_checkOption($match, "addPageButtonEach", $return['createPageButtonEach'], true);
 		if ($return['createPageButtonEach']) $return['createPageButton'] = true;
-		
+
 		// Sorting options
 		$this->_checkOption($match, "sortAscending", $return['scandir_sort'], SCANDIR_SORT_ASCENDING);
 		$this->_checkOption($match, "sortDescending", $return['scandir_sort'], SCANDIR_SORT_DESCENDING);
-		
+
 		// Remove other options and warn about
 		for ($found; preg_match("/ (-.*)/", $match, $found); ) {
 			msg(sprintf($this->getLang('unknownoption'), htmlspecialchars($found[1])), -1);
 			$match = str_replace($found[0], '', $match);
 		}
-		
+
 		// Looking for the wanted namespace. Now, only the wanted namespace remains in $match
 		$ns = trim($match);
 		if ($ns == '') $ns = '.'; // If there is nothing, we take the current namespace
@@ -159,12 +159,12 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 		}
 		$cleanNs = implode(':', $cleanNs);
 		$return['wantedNS'] = $cleanNs;
-		
+
 		return $return;
 	}
-	
+
 	/*************************************************************************************************/
-	
+
 	function _isExcluded ($item, $exclutype, $arrayRegex) {
 		if ($arrayRegex === true) return true;
 		global $conf;
@@ -176,12 +176,12 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 		}
 		return false;
 	}
-	
-	function render ($mode, &$renderer, $data) {
+
+	function render ($mode, Doku_Renderer $renderer, $data) {
 		global $conf;
-		
+
 		if (!$data['safe']) return FALSE;
-		
+
 		// Display headline
 		if ($data['head']) {
 			$html_tag_small = ($data['nsInBold']) ? 'strong' : 'span';
@@ -197,10 +197,10 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			else $renderer->doc .= htmlspecialchars($mainPageTitle);
 			$renderer->doc .= '</'.$html_tag.'>';
 		}
-		
+
 		// Recurse and display
 		$global_ul_attr = "";
-		if ($data['columns'] != 0) { 
+		if ($data['columns'] != 0) {
 			$global_ul_attr = 'column-count: '.$data['columns'].';';
 			$global_ul_attr = 'style="-webkit-'.$global_ul_attr.' -moz-'.$global_ul_attr.' '.$global_ul_attr.'" ';
 			$global_ul_attr .= 'class="catlist_columns" ';
@@ -210,10 +210,10 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 		$perm_create = auth_quickaclcheck($id.':*') >= AUTH_CREATE;
 		if ($data['createPageButton'] && $perm_create) $this->_displayAddPageButton($renderer, $data['wantedNS'].':', $data['displayType']);
 		if ($data['displayType'] == CATLIST_DISPLAY_LIST) $renderer->doc .= '</ul>';
-		
+
 		return TRUE;
 	}
-	
+
 	function _recurse (&$renderer, $data, $dir, $ns, $excluPages, $excluNS, $depth, $maxdepth) {
 		$mainPageId = $ns.':';
 		$mainPageExists = false;
@@ -255,7 +255,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 				}
 					// Render ns end
 				$this->_displayNSEnd($renderer, $data['displayType'], ($data['createPageButtonEach'] && $perms >= AUTH_CREATE) ? $id.':' : NULL);
-			} else 
+			} else
 				// It's a page
 			if (!$excluPages) {
 				if (substr($file, -4) != ".txt") continue;
@@ -271,9 +271,9 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			}
 		}
 	}
-	
+
 	/*************************************************************************************************/
-	
+
 	function _displayNSBegin (&$renderer, $item, $displayType, $displayLink, $inBold, $retract = false) {
 		if ($displayType == CATLIST_DISPLAY_LIST) {
 			$warper_ns = ($inBold) ? 'strong' : 'span';
@@ -291,13 +291,13 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$renderer->doc .= '[ ';
 		}
 	}
-	
+
 	function _displayNSEnd (&$renderer, $displayType, $nsAddButton) {
 		if (!is_null($nsAddButton)) $this->_displayAddPageButton($renderer, $nsAddButton, $displayType);
 		if ($displayType == CATLIST_DISPLAY_LIST) $renderer->doc .= '</ul></li>';
 		else if ($displayType == CATLIST_DISPLAY_LINE) $renderer->doc .= '] ';
 	}
-	
+
 	function _displayPage (&$renderer, $item, $displayType) {
 		if ($displayType == CATLIST_DISPLAY_LIST) {
 			$renderer->doc .= '<li>';
@@ -308,11 +308,11 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$renderer->doc .= ' ';
 		}
 	}
-	
+
 	function _displayAddPageButton (&$renderer, $ns, $displayType) {
 		global $conf;
 		$html = ($displayType == CATLIST_DISPLAY_LIST) ? 'li' : 'span';
 		$renderer->doc .= '<'.$html.' class="catlist_addpage"><button class="button" onclick="button_add_page(this, \''.DOKU_URL.'\',\''.DOKU_SCRIPT.'\', \''.$ns.'\', '.$conf['useslash'].', '.$conf['userewrite'].', \''.$conf['sepchar'].'\')">'.$this->getLang('addpage').'</button></'.$html.'>';
 	}
-	
+
 }
