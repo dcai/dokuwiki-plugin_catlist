@@ -1,7 +1,7 @@
 base catlist
 author Félix Faisant
 email xcodexif@xif.fr
-date 2015-10-09
+date 2016-04-20
 name catlist plugin
 desc List pages an namespaces recursively
 url http://www.dokuwiki.org/plugin:catlist

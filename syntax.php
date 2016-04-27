@@ -48,11 +48,12 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 	}
 	
 	function handle ($match, $state, $pos, &$handler) {
-		$return = array('displayType' => CATLIST_DISPLAY_LIST, 'forceLinks' => false, 'nsInBold' => true, 'expand' => 6,
+		$return = array('displayType' => CATLIST_DISPLAY_LIST, 'nsInBold' => true, 'expand' => 6,
 		                'exclupage' => array(), 'excluns' => array(), 'exclunsall' => array(), 'exclunspages' => array(), 'exclunsns' => array(),
 		                'exclutype' => 'id', 
 		                'createPageButton' => true, 'createPageButtonEach' => false, 
 		                'head' => true, 'headTitle' => NULL, 'smallHead' => false, 'linkStartHead' => true, 'hn' => 'h1',
+		                'NsHeadTitle' => true, 'forceLinks' => false,
 		                'wantedNS' => '', 'safe' => true,
 		                'columns' => 0,
 		                'scandir_sort' => SCANDIR_SORT_NONE);
@@ -68,9 +69,10 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			$match = str_replace($found[0], '', $match);
 		}
 		
-		// Force links option
+		// Namespace options
 		$this->_checkOption($match, "forceLinks", $return['forceLinks'], true);
-		
+		$this->_checkOption($match, "noNSHeadTitle", $return['NsHeadTitle'], false);
+
 		// Exclude options
 		for ($found; preg_match("/-(exclu(page|ns|nsall|nspages|nsns)):\"([^\\/\"]+)\" /i", $match, $found); ) {
 			$return[strtolower($found[1])][] = $found[3];
@@ -214,7 +216,7 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 	
 	function _recurse (&$renderer, $data, $dir, $ns, $excluPages, $excluNS, $depth, $maxdepth) {
 		$mainPageId = $ns.':';
-		$mainPageExists;
+		$mainPageExists = false;
 		resolve_pageid('', $mainPageId, $mainPageExists);
 		if (!$mainPageExists) $mainPageId = NULL;
 		global $conf;
@@ -224,34 +226,48 @@ class syntax_plugin_catlist extends DokuWiki_Syntax_Plugin {
 			msg(sprintf($this->getLang('dontexist'), $ns), 0);
 			return;
 		}
-		foreach ($scanDirs as $item) {
-			if ($item[0] == '.' || $item[0] == '_') continue;
-			$name = str_replace('.txt', '', $item);
+		foreach ($scanDirs as $file) {
+			if ($file[0] == '.' || $file[0] == '_') continue;
+			$name = utf8_decodeFN(str_replace('.txt', '', $file));
 			$id = $ns.':'.$name;
-			$infos = array('id'=>$id, 'name'=>$name);
-			if (is_dir($path.'/'.$item)) {
+			$item = array('id' => $id, 'name'  => $name, 'title' => NULL);
+				// It's a namespace
+			if (is_dir($path.'/'.$file)) {
 				if ($excluNS) continue;
+					// Start page of the ns
 				$startid = $id.':';
 				$startexist = false;
 				resolve_pageid('', $startid, $startexist);
-				$infos['title'] = ($startexist) ? p_get_first_heading($startid, true) : $name;
-				if ($this->_isExcluded($infos, $data['exclutype'], $data['excluns'])) continue;
 				$perms = auth_quickaclcheck($id.':*');
-				$this->_displayNSBegin($renderer, $infos, $data['displayType'], (($startexist || $data['forceLinks']) && $perms >= AUTH_READ), $data['nsInBold'], $data['expand']);
+					// Title
+				$item['title'] = ($startexist && $data['NsHeadTitle']) ? p_get_first_heading($startid, true) : $name;
+					// Exclusion
+				if ($this->_isExcluded($item, $data['exclutype'], $data['excluns'])) continue;
+					// Render ns begin
+				$displayLink = ($startexist || $data['forceLinks']) && $perms >= AUTH_READ && $data['NsHeadTitle'];
+				$this->_displayNSBegin($renderer, $item, $data['displayType'], $displayLink, $data['nsInBold'], $data['expand']);
+					// Recursion if wanted
 				$okdepth = ($depth < $maxdepth) || ($maxdepth == 0);
-				if (!$this->_isExcluded($infos, $data['exclutype'], $data['exclunsall']) && $perms >= AUTH_READ && $okdepth) {
-					$exclunspages = $this->_isExcluded($infos, $data['exclutype'], $data['exclunspages']);
-					$exclunsns = $this->_isExcluded($infos, $data['exclutype'], $data['exclunsns']);
-					$this->_recurse($renderer, $data, $dir.'/'.$item, $ns.':'.$item, $exclunspages, $exclunsns, $depth+1, $maxdepth);
+				if (!$this->_isExcluded($item, $data['exclutype'], $data['exclunsall']) && $perms >= AUTH_READ && $okdepth) {
+					$exclunspages = $this->_isExcluded($item, $data['exclutype'], $data['exclunspages']);
+					$exclunsns = $this->_isExcluded($item, $data['exclutype'], $data['exclunsns']);
+					$this->_recurse($renderer, $data, $dir.'/'.$file, $ns.':'.$name, $exclunspages, $exclunsns, $depth+1, $maxdepth);
 				}
+					// Render ns end
 				$this->_displayNSEnd($renderer, $data['displayType'], ($data['createPageButtonEach'] && $perms >= AUTH_CREATE) ? $id.':' : NULL);
-			} else if (!$excluPages) {
-				if (substr($item, -4) != ".txt") continue;
+			} else 
+				// It's a page
+			if (!$excluPages) {
+				if (substr($file, -4) != ".txt") continue;
 				if (auth_quickaclcheck($id) < AUTH_READ) continue;
-				$infos['title'] = p_get_first_heading($id, true);
-				if (is_null($infos['title'])) $infos['title'] = $name;
-				if ($this->_isExcluded($infos, $data['exclutype'], $data['exclupage'])) continue;
-				if ($id != $mainPageId) $this->_displayPage($renderer, $infos, $data['displayType']);
+					// Page title
+				$title = p_get_first_heading($id, true);
+				if (!is_null($title)) $item['title'] = $title;
+					// Exclusion
+				if ($this->_isExcluded($item, $data['exclutype'], $data['exclupage'])) continue;
+				if ($id == $mainPageId) continue;
+					// Render page
+				$this->_displayPage($renderer, $item, $data['displayType']);
 			}
 		}
 	}

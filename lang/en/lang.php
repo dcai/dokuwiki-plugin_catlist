@@ -3,7 +3,7 @@
  * English language file
  *
  * @license    GPL 2 (http://www.gnu.org/licenses/gpl.html)
- * @author     FŽlix Faisant <xcodexif@xif.fr>
+ * @author     FÃ©lix Faisant <xcodexif@xif.fr>
  */
  
 $lang['encoding']       = 'utf-8';
